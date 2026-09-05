@@ -33,6 +33,11 @@ BOOLEAN_COLUMNS = ["motion", "light"]
 FLOAT_COLUMNS = ["co", "humidity", "lpg", "smoke", "temp"]
 
 
+def utcnow() -> datetime.datetime:
+    """Return the current UTC time as a timezone-aware datetime object."""
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 def find_csv_file(data_dir: str) -> str:
     """Locate the CSV file to load inside the mounted data directory."""
     csv_files = glob.glob(os.path.join(data_dir, "*.csv"))
@@ -85,18 +90,18 @@ def load_batches(df: pd.DataFrame, measurements_col, ingestion_log_col, source_f
             "source_file": source_file,
             "batch_index": batch_index,
             "batch_size": len(records),
-            "started_at": datetime.datetime.utcnow(),
+            "started_at": utcnow(),
         }
 
         try:
             measurements_col.insert_many(records, ordered=False)
             log_entry["status"] = "success"
-            log_entry["finished_at"] = datetime.datetime.utcnow()
+            log_entry["finished_at"] = utcnow()
             successful_batches += 1
         except PyMongoError as e:
             log_entry["status"] = "failed"
             log_entry["error"] = str(e)
-            log_entry["finished_at"] = datetime.datetime.utcnow()
+            log_entry["finished_at"] = utcnow()
             failed_batches += 1
         finally:
             ingestion_log_col.insert_one(log_entry)
