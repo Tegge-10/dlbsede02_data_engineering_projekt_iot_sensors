@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  mongodb:
+    image: mongo:7.0 # lädt das fertige MongoDB-Image
+    container_name: sensor_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db #  sichert die Datenbankdaten dauerhaft (Named Volume)
+    restart: unless-stopped
+
+  loader:
+    build: ./loader #  das Dockerfile im Ordner loader/ soll verwendet werden, um dieses Image zu bauen
+    container_name: sensor_loader
+    depends_on:
+      - mongodb # sorgt dafür, dass MongoDB vor dem Loader startet
+    volumes:
+      - ./SampleData:/app/data # reicht nur die lokale CSV-Datei in den Loader-Container (Bind Mount), ohne sie ins Image selbst einzubacken
+    environment:
+      MONGO_URI: mongodb://mongodb:27017 # übergibt die Verbindungsadresse an Python-Code
+    restart: "no" #  Loader soll nach getaner Arbeit enden, nicht endlos neu starten, während MongoDB dauerhaft laufen soll
+
+volumes:
+  mongo-data:
