@@ -1,0 +1,8 @@
+# MongoDB driver for Python: lets data_pipeline.py open a connection to the
+# mongodb service (via MONGO_URI) and insert/query documents in the sensor collections
+pymongo==4.8.0
+
+# Used to read the sample CSV file, infer/convert column data types
+# (e.g. motion/light as boolean, co/lpg/smoke/temp/humidity as float),
+# and split the ~500,000 rows into manageable batches for reliable, retryable loading
+pandas==2.2.2

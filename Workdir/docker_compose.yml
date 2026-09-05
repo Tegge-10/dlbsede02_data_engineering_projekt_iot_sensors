@@ -2,24 +2,24 @@ version: "3.9"
 
 services:
   mongodb:
-    image: mongo:7.0 # lädt das fertige MongoDB-Image
+    image: mongo:7.0                 # Pulls the official MongoDB image from Docker Hub (no local build needed)
     container_name: sensor_mongodb
     ports:
-      - "27017:27017"
+      - "27017:27017"                # Exposes MongoDB's default port to the host
     volumes:
-      - mongo-data:/data/db #  sichert die Datenbankdaten dauerhaft (Named Volume)
-    restart: unless-stopped
+      - mongo-data:/data/db          # Named volume: persists database files independently of the container's lifecycle
+    restart: unless-stopped          # MongoDB should keep running continuously as the system's backing store
 
   loader:
-    build: ./loader #  das Dockerfile im Ordner loader/ soll verwendet werden, um dieses Image zu bauen
+    build: ./loader                  # Builds the loader image from the Dockerfile located in the loader/ directory
     container_name: sensor_loader
     depends_on:
-      - mongodb # sorgt dafür, dass MongoDB vor dem Loader startet
+      - mongodb                      # Ensures MongoDB is started before the loader attempts to connect
     volumes:
-      - ./SampleData:/app/data # reicht nur die lokale CSV-Datei in den Loader-Container (Bind Mount), ohne sie ins Image selbst einzubacken
+      - ./SampleData:/app/data       # Bind mount: makes the local sample CSV files available inside the container without baking them into the image
     environment:
-      MONGO_URI: mongodb://mongodb:27017 # übergibt die Verbindungsadresse an Python-Code
-    restart: "no" #  Loader soll nach getaner Arbeit enden, nicht endlos neu starten, während MongoDB dauerhaft laufen soll
+      MONGO_URI: mongodb://mongodb:27017   # Passes the MongoDB connection string to the Python script via environment variable
+    restart: "no"                    # The loader is a one-off batch job: it should run once, finish, and exit rather than restart in a loop
 
 volumes:
-  mongo-data:
+  mongo-data:                        # Declares the named volume used by the mongodb service above
