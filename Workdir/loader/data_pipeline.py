@@ -30,6 +30,7 @@ MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
 DATABASE_NAME = "sensor_data"
 MEASUREMENTS_COLLECTION = "measurements"
 INGESTION_LOG_COLLECTION = "ingestion_log"
+REJECTED_RECORDS_COLLECTION = "rejected_records"
 
 DATA_DIR = "/app/data"          # mounted via bind mount in docker-compose.yml
 BATCH_SIZE = 10000              # number of rows loaded into MongoDB per batch, can be adjusted
@@ -52,9 +53,24 @@ def find_csv_file(data_dir: str) -> str:
     return csv_files[0]
 
 
-def load_and_clean_data(csv_path: str) -> pd.DataFrame:
-    """Read the CSV file and convert columns into their expected data types."""
+def load_and_clean_data(csv_path: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Read the CSV file and convert columns into their expected data types.
+
+    Returns a tuple (valid_df, rejected_df):
+    - valid_df contains rows with a parseable timestamp and a non-null
+      device id, ready to be batched and inserted as measurements.
+    - rejected_df contains the original, unmodified rows that are missing
+      a usable timestamp or device id. These rows are not discarded; they
+      are persisted into a separate collection so that every row present
+      in the source file remains retrievable, even if it cannot be
+      interpreted as a valid measurement.
+    """
     df = pd.read_csv(csv_path)
+
+    # Keep the original row exactly as read, before any type coercion,
+    # so rejected rows can be inspected in their raw, unmodified form.
+    original_df = df.copy()
 
     # Convert Unix epoch timestamp (seconds, possibly fractional) to a proper datetime
     df["ts"] = pd.to_datetime(df["ts"], unit="s", errors="coerce")
@@ -69,11 +85,15 @@ def load_and_clean_data(csv_path: str) -> pd.DataFrame:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Drop rows without a valid timestamp or device id, as these cannot be
-    # meaningfully attributed to a sensor reading
-    df = df.dropna(subset=["ts", "device"])
+    # A row is only unusable as a measurement if it lacks a parseable
+    # timestamp or a device id -- both fields are supplied by the sensor
+    # itself and are required to build a meaningful, addressable record.
+    is_invalid = df["ts"].isna() | df["device"].isna()
 
-    return df
+    valid_df = df.loc[~is_invalid].copy()
+    rejected_df = original_df.loc[is_invalid].copy()
+
+    return valid_df, rejected_df
 
 
 def build_document_id(record: dict) -> str:
@@ -86,6 +106,32 @@ def build_document_id(record: dict) -> str:
     ts_value = record["ts"]
     ts_iso = ts_value.isoformat() if hasattr(ts_value, "isoformat") else str(ts_value)
     return f"{record['device']}_{ts_iso}"
+
+def store_rejected_records(collection, rejected_df: pd.DataFrame) -> None:
+    """
+    Persist rows that could not be parsed into valid measurements.
+
+    Each rejected row is stored with its raw original values (as read
+    from the CSV, before any type conversion) plus a timestamp marking
+    when it was rejected, so an operator can later inspect, correct, or
+    manually re-import these rows without having lost the source data.
+    """
+    if rejected_df.empty:
+        return
+
+    records = rejected_df.to_dict(orient="records")
+    for record in records:
+        record["_rejected_at"] = utcnow()
+        record["_reason"] = "missing or unparseable timestamp/device id"
+
+    try:
+        collection.insert_many(records, ordered=False)
+        print(f"Stored {len(records)} rejected record(s) in "
+              f"'{REJECTED_RECORDS_COLLECTION}' for manual review.")
+    except BulkWriteError as bwe:
+        inserted = bwe.details.get("nInserted", 0)
+        print(f"Stored {inserted}/{len(records)} rejected record(s); "
+              f"some entries may already exist.")
 
 
 def batch_dataframe(df: pd.DataFrame, batch_size: int):
@@ -182,8 +228,12 @@ def main():
     try:
         csv_path = find_csv_file(DATA_DIR)
         print(f"Loading data from {csv_path} ...")
-        df = load_and_clean_data(csv_path)
-        print(f"Loaded {len(df)} valid rows after cleaning.")
+        df, rejected_df = load_and_clean_data(csv_path)
+        print(f"Loaded {len(df)} valid rows after cleaning "
+              f"({len(rejected_df)} rows rejected).")
+
+        rejected_col = db[REJECTED_RECORDS_COLLECTION]
+        store_rejected_records(rejected_col, rejected_df)
 
         successful, failed, total, inserted, duplicates = load_batches(
             df, measurements_col, ingestion_log_col, os.path.basename(csv_path)
