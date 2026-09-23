@@ -13,7 +13,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Now copy the actual application code into the image
-COPY data_pipeline.py .
+COPY *.py .
 
 # Note: the sample data itself is NOT copied here.
 # It is mounted at runtime via the bind mount defined in docker-compose.yml (./SampleData:/app/data),
