@@ -140,7 +140,3 @@ You can restart the system at any time afterward simply with `docker compose up 
 ## Notes on Idempotency
 
 Each measurement document is assigned a deterministic ID built from the device ID and timestamp. Re-running the loader (e.g., after a crash or for testing purposes) therefore does not create duplicate entries — already existing records are detected and skipped as duplicates without causing the pipeline to fail. This same mechanism is what makes the retry script (see step 8) safe to run repeatedly.
-
-## Design Rationale (from the Conception Phase)
-
-MongoDB was chosen over PostgreSQL and Cassandra because its schema-flexible document model lets new sensor types (e.g., future noise or fine-dust sensors) be added as additional fields without migrating existing data — a predefined relational schema would require a migration for every new sensor type. For long-term horizontal scalability, the `measurements` collection is designed to be shardable as data volume grows, while smaller, stable collections such as `ingestion_log` and `rejected_records` remain unsharded. This local prototype therefore already reflects the data model intended for a later distributed, cloud-based deployment.
