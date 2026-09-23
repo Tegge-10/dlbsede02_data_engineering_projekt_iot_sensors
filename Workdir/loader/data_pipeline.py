@@ -49,6 +49,7 @@ def find_csv_file(data_dir: str) -> str:
     csv_files = glob.glob(os.path.join(data_dir, "*.csv"))
     if not csv_files:
         raise FileNotFoundError(f"No CSV file found in {data_dir}")
+    return csv_files[0]
 
 
 def load_and_clean_data(csv_path: str) -> pd.DataFrame:
