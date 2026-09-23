@@ -32,7 +32,7 @@ MEASUREMENTS_COLLECTION = "measurements"
 INGESTION_LOG_COLLECTION = "ingestion_log"
 
 DATA_DIR = "/app/data"          # mounted via bind mount in docker-compose.yml
-BATCH_SIZE = 10000              # number of rows loaded into MongoDB per batch
+BATCH_SIZE = 10000              # number of rows loaded into MongoDB per batch, can be adjusted
 
 # Columns and their expected types, based on the sample dataset structure
 BOOLEAN_COLUMNS = ["motion", "light"]
@@ -49,9 +49,6 @@ def find_csv_file(data_dir: str) -> str:
     csv_files = glob.glob(os.path.join(data_dir, "*.csv"))
     if not csv_files:
         raise FileNotFoundError(f"No CSV file found in {data_dir}")
-    # If multiple CSVs are present, prefer one that is not the '_test' file
-    non_test_files = [f for f in csv_files if "_test" not in os.path.basename(f)]
-    return non_test_files[0] if non_test_files else csv_files[0]
 
 
 def load_and_clean_data(csv_path: str) -> pd.DataFrame:
