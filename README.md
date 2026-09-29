@@ -2,7 +2,7 @@
 
 ## Chosen Assignment
 
-This project addresses **Task 1: "Choose a suitable database and store the data in batches"**. The system reads raw sensor data from a CSV file, validates and cleans it, and loads it into a MongoDB database in fault-tolerant batches. The scenario simulates a municipality that has installed various sensors throughout the city to measure environmental metrics (temperature, humidity, smoke, motion, light, etc.), with the goal of providing planners with dashboards and, in the future, warning citizens when measurements exceed recommended values. 
+This project addresses **Task 1: "Choose a suitable database and store the data in batches"**. The system reads raw sensor data from a CSV file, validates and cleans it, and loads it into a MongoDB database in fault-tolerant batches. The scenario simulates a municipality that has installed various sensors throughout the city to measure environmental metrics (temperature, humidity, smoke, motion, light, etc.), with the goal of warning citizens when measurements exceed recommended values. 
 ## Tech Stack
 
 | Component | Technology |
