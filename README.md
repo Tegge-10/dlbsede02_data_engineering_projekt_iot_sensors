@@ -1,8 +1,23 @@
 # IoT Sensor Data Pipeline
 
 ## Chosen Assignment
+This project addresses Task 1: "Choose a suitable database and store the data in batches". The system reads raw sensor data from a CSV file, validates and cleans it, and loads it into a MongoDB database in fault-tolerant batches. The scenario simulates a municipality that has installed various sensors throughout the city to measure environmental metrics (temperature, humidity, smoke, motion, light, etc.).
 
-This project addresses **Task 1: "Choose a suitable database and store the data in batches"**. The system reads raw sensor data from a CSV file, validates and cleans it, and loads it into a MongoDB database in fault-tolerant batches. The scenario simulates a municipality that has installed various sensors throughout the city to measure environmental metrics (temperature, humidity, smoke, motion, light, etc.), with the goal of warning citizens when measurements exceed recommended values. 
+## Use Case and Dataset
+### Use Case: Warning System for Citizens
+
+The central use case of this project is a warning app for citizens. Picture Maja, a resident in a neighborhood where the city has just installed the first environmental sensors. Maja has activated the warning app on her smartphone and receives a push notification as soon as a sensor near her detects critical values for smoke, carbon monoxide, or LPG. For this use case, what matters is that the most recent measurements arrive in the database reliably, completely, and in a timely manner, so that the warning logic can rely on correct data.
+
+Within this bigger system, the present solution acts as the ingestion and persistence layer. It does not expose an API or dashboard itself, but guarantees that every valid sensor reading reliably and idempotently ends up in a collection that downstream applications can build upon, and that every batch outcome is logged so the administrator's monitoring and retry workflow is supported in practice. The batch processing is intended to run hourly in the future. However, the interval can be adjusted as needed. This way, the warning app can display early warnings based on reliably provided data.
+
+### Why This Dataset Is Suitable
+
+The publicly available "Environmental Sensor Telemetry Data" dataset from Kaggle is used as the sample dataset (https://www.kaggle.com/datasets/garystafford/environmental-sensor-data-132k). It contains 405,184 measurements from three identically built sensor arrays (temperature, humidity, CO, LPG, smoke, light, motion) collected over a period of eight days (July 12–19, 2020). This short but dense collection period reflects exactly the starting situation described in the assignment: the city has only just begun installing sensors and has so far collected only the first roughly 500,000 measurements. For the warning-app use case, this is entirely sufficient, since what matters here is the timeliness and reliability of individual readings rather than observation over several years.
+
+### Growth and Architectural Decision
+
+The current dataset deliberately represents only the first test week of the newly installed sensors. In practice, the data volume will continue to grow over the coming months and years, both through the ongoing collection from existing sensors and through new, additional sensor types whose data structure is not yet finally defined today. This is precisely why MongoDB was chosen as a document-oriented, schema-flexible database: new sensor types can simply be added as additional fields in the future, without having to migrate existing data. Containerization with Docker further ensures that the system can be moved unchanged from a local prototype into a distributed cloud environment, where the growing measurements collection can be scaled horizontally, while smaller, stable collections such as ingestion_log and rejected_records remain unsharded. The architecture is therefore designed from the outset to accommodate growth both in the number of measurements and in the diversity of future sensor data.
+
 ## Tech Stack
 
 | Component | Technology |
